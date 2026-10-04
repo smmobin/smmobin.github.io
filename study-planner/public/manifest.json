@@ -1,0 +1,17 @@
+{
+  "name": "پلنر درس‌خوانی",
+  "short_name": "پلنر",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070712",
+  "theme_color": "#070712",
+  "dir": "rtl",
+  "lang": "fa",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
