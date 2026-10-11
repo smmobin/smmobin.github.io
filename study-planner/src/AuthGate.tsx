@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { accountSignupEnabled, cloudEnabled, signInAccount, signUpStudent, testServerEnabled } from './cloud'
+import { cloudEnabled, signInAccount, signUpStudent, testServerEnabled } from './cloud'
 
 export function AuthGate({ initialError, onGuest, onAuthenticated }: {
   initialError: string
@@ -8,6 +8,7 @@ export function AuthGate({ initialError, onGuest, onAuthenticated }: {
 }) {
   const [mode, setMode] = useState<'welcome' | 'student' | 'advisor'>('welcome')
   const [isSignUp, setIsSignUp] = useState(false)
+  const [inviteCode, setInviteCode] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -23,12 +24,17 @@ export function AuthGate({ initialError, onGuest, onAuthenticated }: {
 
     try {
       if (mode === 'student' && isSignUp) {
-        const hasSession = await signUpStudent(email, password, displayName)
+        const cleanInviteCode = inviteCode.trim().toUpperCase()
+        if (!cleanInviteCode) {
+          setError('برای ساخت حساب دانش‌آموز، کد دعوت مشاور لازم است.')
+          return
+        }
+        const hasSession = await signUpStudent(email, password, displayName, cleanInviteCode)
         if (!hasSession) {
-          setMessage('حساب ساخته شد. ایمیل تأیید را بررسی کنید و سپس وارد شوید.')
+          setMessage('حساب ساخته شد. ایمیل تأیید را بررسی کنید؛ بعد از ورود، اتصال به مشاور فعال است.')
           setIsSignUp(false)
         } else {
-          setMessage('حساب ساخته شد؛ در حال ورود...')
+          setMessage('حساب ساخته شد و به مشاور متصل شد؛ در حال ورود...')
           await onAuthenticated()
         }
       } else {
@@ -44,7 +50,8 @@ export function AuthGate({ initialError, onGuest, onAuthenticated }: {
 
   function choose(mode: 'student' | 'advisor') {
     setMode(mode)
-    setIsSignUp(false)
+    setIsSignUp(mode === 'student')
+    setInviteCode('')
     setError('')
     setMessage('')
   }
@@ -89,7 +96,7 @@ export function AuthGate({ initialError, onGuest, onAuthenticated }: {
         ) : (
           <section className="auth-card">
             <button className="ghost" onClick={() => setMode('welcome')}>بازگشت</button>
-            <h1>{mode === 'student' ? 'حساب دانش‌آموز' : 'ورود مشاور'}</h1>
+            <h1>{mode === 'advisor' ? 'ورود مشاور' : isSignUp ? 'ساخت حساب دانش‌آموز' : 'ورود دانش‌آموز'}</h1>
             {!cloudEnabled ? (
               <div className="auth-notice">
                 <strong>اتصال ابری تنظیم نشده</strong>
@@ -100,18 +107,30 @@ export function AuthGate({ initialError, onGuest, onAuthenticated }: {
             ) : (
               <form className="form" onSubmit={submit}>
                 {mode === 'student' && isSignUp && (
-                  <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="نام نمایشی" required />
+                  <>
+                    <label className="field auth-invite-field">
+                      کد دعوت مشاور
+                      <input
+                        value={inviteCode}
+                        onChange={(event) => setInviteCode(event.target.value.toUpperCase())}
+                        placeholder="ابتدا کد دعوت را وارد کنید"
+                        required
+                      />
+                    </label>
+                    <p className="caption">بدون کد دعوت، حساب دانش‌آموز ساخته نمی‌شود.</p>
+                    <input disabled={!inviteCode.trim()} value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="نام نمایشی" required />
+                  </>
                 )}
-                <input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="ایمیل" required />
-                <input type="password" autoComplete={isSignUp ? 'new-password' : 'current-password'} minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="گذرواژه، حداقل ۸ نویسه" required />
+                <input disabled={mode === 'student' && isSignUp && !inviteCode.trim()} type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="ایمیل" required />
+                <input disabled={mode === 'student' && isSignUp && !inviteCode.trim()} type="password" autoComplete={isSignUp ? 'new-password' : 'current-password'} minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="گذرواژه، حداقل ۸ نویسه" required />
                 {error && <p className="auth-error" role="alert">{error}</p>}
                 {message && <p className="auth-success" role="status">{message}</p>}
                 <button className="cta" disabled={busy} type="submit">
                   {busy ? 'لطفاً صبر کنید...' : mode === 'advisor' ? 'ورود مشاور' : isSignUp ? 'ساخت حساب دانش‌آموز' : 'ورود دانش‌آموز'}
                 </button>
-                {mode === 'student' && accountSignupEnabled && (
-                  <button className="ghost" type="button" onClick={() => { setIsSignUp((value) => !value); setError(''); setMessage('') }}>
-                    {isSignUp ? 'قبلاً حساب ساخته‌اید؟ ورود' : 'حساب ندارید؟ ثبت‌نام دانش‌آموز'}
+                {mode === 'student' && (
+                  <button className="ghost" type="button" onClick={() => { setIsSignUp((value) => !value); setInviteCode(''); setError(''); setMessage('') }}>
+                    {isSignUp ? 'قبلاً حساب ساخته‌اید؟ ورود' : 'حساب ندارید؟ ثبت‌نام با کد دعوت'}
                   </button>
                 )}
                 {mode === 'advisor' && <p className="caption">حساب مشاور باید توسط مدیر سامانه تأیید شده باشد.</p>}

@@ -1,16 +1,21 @@
 import { useEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { DAY_NAMES, formatMinutes, jalaliWeekday, minutesThisWeek, subjectOf } from './utils'
+import { DAY_NAMES, formatJalaliDate, formatMinutes, jalaliWeekday, minutesThisWeek, planStatusLabel, studentPace, subjectOf, toISODate } from './utils'
 import { COLORS, newId } from './storage'
-import type { AppData } from './types'
+import type { AdvisorPlanStatus, AppData } from './types'
 import {
   createAdvisorInvite,
   loadAdvisorStudents,
+  saveAdvisorGuidance,
   saveAdvisorPlan,
   signOutCloud,
   type AdvisorStudent,
   type CloudIdentity,
 } from './cloud'
+
+function advisorTimestamp() {
+  return new Date().toISOString()
+}
 
 function blockMinutes(block: AppData['plan'][number]) {
   const [startHour, startMinute] = block.start.split(':').map(Number)
@@ -33,6 +38,7 @@ export function AdvisorDashboard({ identity, onSignedOut }: {
   const [endTime, setEndTime] = useState('10:30')
   const [planDay, setPlanDay] = useState(jalaliWeekday())
   const [planSubject, setPlanSubject] = useState('')
+  const [note, setNote] = useState('')
 
   useEffect(() => {
     let active = true
@@ -162,6 +168,49 @@ export function AdvisorDashboard({ identity, onSignedOut }: {
     }
   }
 
+  async function saveGuidance(updated: AppData, success: string) {
+    if (!selected) return
+    setSaving(true)
+    setError('')
+    try {
+      await saveAdvisorGuidance(selected.id, updated)
+      setStudents((current) => current.map((student) => student.id === selected.id ? { ...student, data: updated } : student))
+      setNotice(success)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'ذخیرهٔ بازخورد انجام نشد.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function addAdvisorNote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!selected) return
+    const text = note.trim()
+    if (!text) return
+    const updated = {
+      ...selected.data,
+      advisorNotes: [...(selected.data.advisorNotes ?? []), {
+        id: newId(),
+        date: toISODate(),
+        text,
+        createdAt: advisorTimestamp(),
+      }],
+    }
+    await saveGuidance(updated, 'بازخورد برای دانش‌آموز ذخیره شد.')
+    setNote('')
+  }
+
+  async function updatePlanStatus(status: AdvisorPlanStatus) {
+    if (!selected) return
+    const updated = {
+      ...selected.data,
+      advisorPlanStatus: status,
+      advisorPlanApprovedAt: status === 'approved' ? advisorTimestamp() : selected.data.advisorPlanApprovedAt,
+    }
+    await saveGuidance(updated, status === 'approved' ? 'برنامه تأیید شد.' : 'برنامه برای بازبینی علامت خورد.')
+  }
+
   async function logout() {
     await signOutCloud()
     onSignedOut()
@@ -200,8 +249,9 @@ export function AdvisorDashboard({ identity, onSignedOut }: {
           <>
             <section className="advisor-student-list">
               {students.map((student) => (
-                <button key={student.id} className={`advisor-student ${student.id === selectedId ? 'on' : ''}`} onClick={() => setSelectedId(student.id)}>
-                  <span>{student.displayName}</span><small>{formatMinutes(minutesThisWeek(student.data.sessions))} این هفته</small>
+                <button key={student.id} className={`advisor-student pace-${studentPace(student.data)} ${student.id === selectedId ? 'on' : ''}`} onClick={() => setSelectedId(student.id)}>
+                  <span>{student.displayName}</span>
+                  <small>{formatMinutes(minutesThisWeek(student.data.sessions))} این هفته · {studentPace(student.data) === 'good' ? 'خوب' : studentPace(student.data) === 'inactive' ? 'بدون فعالیت' : 'نیازمند پیگیری'}</small>
                 </button>
               ))}
             </section>
@@ -221,6 +271,21 @@ export function AdvisorDashboard({ identity, onSignedOut }: {
                     <button className="ghost tiny advisor-delete-subject" type="button" disabled={saving} onClick={() => void archiveSubject(subject.id)}>حذف درس از برنامه</button>
                   </li>
                 ))}</ul> : <p className="empty">هنوز درسی برای این دانش‌آموز برنامه‌ریزی نشده است.</p>}
+              </section>
+
+              <section className="card">
+                <div className="card-head"><h2>بازخورد و تأیید</h2><span>{planStatusLabel(selected.data.advisorPlanStatus)}</span></div>
+                {(selected.data.advisorNotes ?? []).length ? <ul className="timeline">{[...(selected.data.advisorNotes ?? [])].slice(-3).reverse().map((item) => (
+                  <li key={item.id}><i /><div><strong>{formatJalaliDate(item.date)}</strong><small>{item.text}</small></div></li>
+                ))}</ul> : <p className="empty">هنوز بازخوردی ثبت نشده است.</p>}
+                <form className="form advisor-guidance-form" onSubmit={(event) => void addAdvisorNote(event)}>
+                  <input value={note} onChange={(event) => setNote(event.target.value)} placeholder="یادداشت برای دانش‌آموز" required />
+                  <div className="advisor-guidance-actions">
+                    <button type="submit" disabled={saving}>{saving ? 'در حال ذخیره...' : 'ثبت بازخورد'}</button>
+                    <button className="cta advisor-approve" type="button" disabled={saving} onClick={() => void updatePlanStatus('approved')}>تأیید برنامه</button>
+                  </div>
+                  <button className="ghost" type="button" disabled={saving} onClick={() => void updatePlanStatus('needs_changes')}>نیازمند بازبینی</button>
+                </form>
               </section>
 
               <section className="card">

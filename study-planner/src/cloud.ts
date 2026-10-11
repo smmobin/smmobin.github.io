@@ -176,12 +176,27 @@ export async function signInAccount(email: string, password: string) {
   setDemoToken(result.token)
 }
 
-export async function signUpStudent(email: string, password: string, displayName: string) {
+export async function signUpStudent(email: string, password: string, displayName: string, inviteCode: string) {
+  const cleanInviteCode = inviteCode.trim().toUpperCase()
+  if (!cleanInviteCode) throw new Error('ثبت‌نام دانش‌آموز فقط با کد دعوت مشاور انجام می‌شود.')
+  if (testServerEnabled) {
+    const result = await demoRequest<{ token: string }>('/api/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify({
+        email,
+        password,
+        displayName: displayName.trim(),
+        inviteCode: cleanInviteCode,
+      }),
+    })
+    setDemoToken(result.token)
+    return true
+  }
   if (!supabase) throw new Error('ساخت حساب واقعی با Supabase انجام می‌شود؛ در سرور دمو از حساب‌های نمونه استفاده کنید.')
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { display_name: displayName.trim() } },
+    options: { data: { display_name: displayName.trim(), advisor_invite: cleanInviteCode } },
   })
   if (error) throw error
   return Boolean(data.session)
@@ -224,6 +239,29 @@ export async function saveAdvisorPlan(studentId: string, data: AppData) {
     plan_data: data.plan,
     subjects_data: data.subjects,
     weekly_goal_minutes: data.weeklyGoalMinutes,
+  })
+  if (error) throw error
+}
+
+export async function saveAdvisorGuidance(studentId: string, data: AppData) {
+  const payload = {
+    advisorNotes: data.advisorNotes ?? [],
+    advisorPlanStatus: data.advisorPlanStatus ?? 'draft',
+    advisorPlanApprovedAt: data.advisorPlanApprovedAt ?? null,
+  }
+  if (testServerEnabled) {
+    await demoRequest(`/api/advisor/students/${encodeURIComponent(studentId)}/guidance`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
+    return
+  }
+  if (!supabase) throw new Error('تنظیمات اتصال ابری وارد نشده است.')
+  const { error } = await supabase.rpc('save_advisor_guidance', {
+    student_id: studentId,
+    notes_data: payload.advisorNotes,
+    plan_status: payload.advisorPlanStatus,
+    approved_at: payload.advisorPlanApprovedAt,
   })
   if (error) throw error
 }

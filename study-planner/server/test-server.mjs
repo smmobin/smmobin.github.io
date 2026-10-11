@@ -95,6 +95,9 @@ try {
 
 const sessions = new Map()
 const invites = new Map((state.invites ?? []).map((invite) => [invite.token, invite]))
+for (const account of state.accounts ?? []) {
+  credentials.set(account.email, { password: account.password, profileId: account.profileId })
+}
 let writeQueue = Promise.resolve()
 
 function persist() {
@@ -201,7 +204,47 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === 'POST' && url.pathname === '/api/auth/signup') {
-      send(response, 400, { error: 'سرور آزمایشی فقط حساب‌های ازپیش‌ساخته‌شده دارد.' })
+      const body = await readJson(request)
+      const email = String(body.email ?? '').trim().toLowerCase()
+      const password = String(body.password ?? '')
+      const displayName = String(body.displayName ?? '').trim()
+      const code = String(body.inviteCode ?? '').trim().toUpperCase()
+      if (!displayName || !email || password.length < 8 || !code) {
+        send(response, 400, { error: 'برای ساخت حساب، کد دعوت، نام، ایمیل و گذرواژهٔ حداقل ۸ نویسه‌ای لازم است.' })
+        return
+      }
+      if (credentials.has(email)) {
+        send(response, 409, { error: 'این ایمیل قبلاً ثبت شده است. از ورود استفاده کنید.' })
+        return
+      }
+      const invite = invites.get(code)
+      if (!invite || invite.redeemed || invite.expiresAt <= Date.now()) {
+        send(response, 400, { error: 'کد دعوت نامعتبر، منقضی یا استفاده‌شده است.' })
+        return
+      }
+      const profile = { id: randomUUID(), display_name: displayName, role: 'student', email }
+      state.profiles.push(profile)
+      state.workspaces[profile.id] = {
+        version: 1,
+        name: displayName,
+        weeklyGoalMinutes: 480,
+        focusMinutes: 25,
+        breakMinutes: 5,
+        subjects: [],
+        sessions: [],
+        tasks: [],
+        plan: [],
+        advisorNotes: [],
+        advisorPlanStatus: 'draft',
+      }
+      state.accounts = [...(state.accounts ?? []), { email, password, profileId: profile.id }]
+      credentials.set(email, { password, profileId: profile.id })
+      invite.redeemed = true
+      state.relations.push({ advisorId: invite.advisorId, studentId: profile.id, status: 'active' })
+      await persist()
+      const token = randomBytes(32).toString('hex')
+      sessions.set(token, profile.id)
+      send(response, 200, { token, identity: identityFor(profile) })
       return
     }
 
@@ -321,6 +364,28 @@ const server = createServer(async (request, response) => {
       state.workspaces[studentId].plan = body.plan
       state.workspaces[studentId].subjects = body.subjects
       state.workspaces[studentId].weeklyGoalMinutes = Number(body.weeklyGoalMinutes) || 0
+      await persist()
+      send(response, 200, { ok: true })
+      return
+    }
+
+    const guidanceMatch = url.pathname.match(/^\/api\/advisor\/students\/([^/]+)\/guidance$/)
+    if (request.method === 'PUT' && guidanceMatch) {
+      const studentId = guidanceMatch[1]
+      const relation = state.relations.some((item) => item.advisorId === profile.id && item.studentId === studentId && item.status === 'active')
+      if (profile.role !== 'advisor' || !relation) {
+        send(response, 403, { error: 'مشاور به این دانش‌آموز دسترسی ندارد.' })
+        return
+      }
+      const body = await readJson(request)
+      const allowed = new Set(['draft', 'approved', 'needs_changes'])
+      if (!Array.isArray(body.advisorNotes) || !allowed.has(body.advisorPlanStatus)) {
+        send(response, 400, { error: 'بازخورد یا وضعیت برنامه نامعتبر است.' })
+        return
+      }
+      state.workspaces[studentId].advisorNotes = body.advisorNotes
+      state.workspaces[studentId].advisorPlanStatus = body.advisorPlanStatus
+      state.workspaces[studentId].advisorPlanApprovedAt = body.advisorPlanApprovedAt ?? null
       await persist()
       send(response, 200, { ok: true })
       return

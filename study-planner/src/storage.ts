@@ -73,6 +73,8 @@ export function defaultData(): AppData {
     sessions,
     tasks,
     plan,
+    advisorNotes: [],
+    advisorPlanStatus: 'draft',
   }
 }
 
