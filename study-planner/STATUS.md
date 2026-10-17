@@ -1,11 +1,22 @@
 # STATUS.md — وضعیت فعلی درس‌یار
 
-آخرین به‌روزرسانی: ۱۴۰۴/۰۷/۲۶ (2026-10-18) — PM موج A را از روی کد تأیید کرد  
+آخرین به‌روزرسانی: ۱۴۰۴/۰۷/۲۶ (2026-10-18) — جداسازی branchهای خارجی از این ریپو  
 نقش این فایل: عکس فوری برای شروع هر جلسهٔ محصول/پروژه.
 
 ## خلاصهٔ یک‌خطی
 
-**موج A تأیید شد** (`apps/api` + `apps/web` + JWT + workspace دانش‌آموز). مشاور روی API هنوز `advisorNotReady` است؛ مهمان مانده. **الان فقط موج B.** پرامپت: `docs/PROMPTS.md`.
+**موج A روی `main` این ریپو است.** مشاور روی API هنوز `advisorNotReady`؛ مهمان مانده. **صف: موج B.** پرامپت: `docs/PROMPTS.md`.
+
+## جداسازی پروژه‌ها (انجام شد)
+
+Branchهای `cursor/personal-site-prototype` و `cursor/advisor-guidance` از ریپوی `study-planner` حذف شدند (محتوا به `main` منتقل شد).
+
+| پروژه | پوشهٔ محلی | GitHub (private) |
+|--------|------------|------------------|
+| personal site | `D:\VibeCoding\Cursor\personal-site-prototype` | https://github.com/smmobin/personal-site-prototype |
+| advisor-guidance snapshot | `D:\VibeCoding\Cursor\advisor-guidance` | https://github.com/smmobin/advisor-guidance |
+
+کار روزمرهٔ درس‌یار همچنان: `D:\VibeCoding\Cursor\study-planner` → https://github.com/smmobin/study-planner (`main`).
 
 ## وضعیت این لحظه (برای مالک)
 

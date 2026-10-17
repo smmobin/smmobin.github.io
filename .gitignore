@@ -1,0 +1,7 @@
+# Sibling projects with their own git remotes — do not nest into study-planner remote
+Gym/
+Mobin/
+OtherApp/
+personal-site-prototype/
+advisor-guidance/
+principled-project-playbook.md
