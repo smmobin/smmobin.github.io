@@ -14,15 +14,12 @@ export type Session = {
   note?: string
 }
 
-export type TaskPriority = 'low' | 'normal' | 'high'
-
 export type Task = {
   id: string
   subjectId: string
   title: string
   done: boolean
   dueDate?: string
-  priority?: TaskPriority
 }
 
 export type PlanBlock = {
@@ -35,15 +32,6 @@ export type PlanBlock = {
   title: string
 }
 
-export type AdvisorNote = {
-  id: string
-  date: string
-  text: string
-  createdAt: string
-}
-
-export type AdvisorPlanStatus = 'draft' | 'approved' | 'needs_changes'
-
 export type AppData = {
   version: 1
   name: string
@@ -54,9 +42,6 @@ export type AppData = {
   sessions: Session[]
   tasks: Task[]
   plan: PlanBlock[]
-  advisorNotes?: AdvisorNote[]
-  advisorPlanStatus?: AdvisorPlanStatus
-  advisorPlanApprovedAt?: string
 }
 
 export type Tab = 'home' | 'plan' | 'timer' | 'subjects' | 'more'

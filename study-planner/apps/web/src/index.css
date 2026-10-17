@@ -109,11 +109,6 @@ select {
 .auth-notice code {
   color: var(--mint);
 }
-.auth-invite-field {
-  display: grid;
-  gap: 6px;
-  font-size: 12px;
-}
 .auth-card {
   margin-top: 28px;
   padding: 18px;
@@ -218,35 +213,6 @@ select {
   margin-top: 5px;
   color: #ff9aaa;
   border-color: rgba(255, 138, 160, 0.24);
-}
-.advisor-guidance-form {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 10px;
-  margin-bottom: 2px;
-}
-.advisor-guidance-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-.advisor-guidance-form button {
-  width: 100%;
-  min-height: 48px;
-  box-sizing: border-box;
-  border: 0;
-  border-radius: 16px;
-  padding: 12px 14px;
-  font-weight: 700;
-  line-height: 1.4;
-}
-.advisor-guidance-form > .ghost {
-  color: var(--text);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.06);
-}
-.advisor-guidance-form > .advisor-approve {
-  background: linear-gradient(135deg, #3ee0b5, #5bb8ff);
-  color: #071018;
 }
 .advisor-plan-form {
   gap: 12px;
@@ -941,55 +907,13 @@ select {
   gap: 10px;
 }
 .form input,
-.form select,
-.field input,
-.field select {
+.field input {
   width: 100%;
   border-radius: 12px;
   border: 1px solid var(--stroke);
   background: #0c0c1c;
   color: white;
   padding: 10px 12px;
-}
-.form input:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-.report-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-.report-stats div {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  padding: 10px;
-  border: 1px solid var(--stroke);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-}
-.report-stats strong {
-  font-size: 14px;
-}
-.report-stats span,
-.task-filters {
-  color: var(--muted);
-  font-size: 11px;
-}
-.task-filters {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-bottom: 10px;
-}
-.advisor-student.pace-good {
-  border-color: rgba(62, 224, 181, 0.55);
-}
-.advisor-student.pace-follow_up {
-  border-color: rgba(255, 138, 91, 0.7);
-}
-.advisor-student.pace-inactive {
-  border-color: rgba(255, 138, 160, 0.55);
 }
 .advisor-plan-form .advisor-picker-trigger {
   width: 100%;

@@ -3,29 +3,21 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
   "scripts": {
-    "dev": "vite",
+    "dev": "npm run dev -w @study-planner/web",
+    "dev:api": "npm run dev -w @study-planner/api",
+    "dev:app": "node scripts/dev-app.mjs",
     "dev:demo": "node scripts/dev-demo.mjs",
+    "test": "npm run test -w @study-planner/api",
+    "test:api": "npm run test -w @study-planner/api",
     "test:server": "node server/test-server.mjs",
-    "build": "tsc -b && vite build",
-    "lint": "oxlint",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@capacitor/android": "^8.5.2",
-    "@capacitor/cli": "^8.5.2",
-    "@capacitor/core": "^8.5.2",
-    "@supabase/supabase-js": "^2.117.2",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
-  },
-  "devDependencies": {
-    "@types/node": "^24.13.3",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.7",
-    "@vitejs/plugin-react": "^6.1.1",
-    "oxlint": "^1.81.0",
-    "typescript": "~6.0.2",
-    "vite": "^8.3.0"
+    "build": "npm run build -w @study-planner/web",
+    "lint": "npm run lint -w @study-planner/web",
+    "preview": "npm run preview -w @study-planner/web",
+    "migrate": "npm run migrate -w @study-planner/api"
   }
 }

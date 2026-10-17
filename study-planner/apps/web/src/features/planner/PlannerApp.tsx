@@ -1,22 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { BarWeek, Donut, Heatmap, Ring } from './Charts'
-import { COLORS, loadData, newId, saveData } from './storage'
-import { AuthGate } from './AuthGate'
-import { AdvisorDashboard } from './AdvisorDashboard'
-import type { Session } from '@supabase/supabase-js'
-import {
-  cloudEnabled,
-  joinAdvisor,
-  loadCurrentIdentity,
-  loadCloudIdentity,
-  saveStudentWorkspace,
-  signOutCloud,
-  supabase,
-  testServerEnabled,
-  type CloudIdentity,
-} from './cloud'
-import type { AppData, Tab, TaskPriority } from './types'
+import { BarWeek, Donut, Heatmap, Ring } from '../../Charts'
+import { COLORS, loadData, newId, saveData } from '../../storage'
+import { saveStudentWorkspace, type CloudIdentity } from '../../cloud'
+import type { AppData, Tab } from '../../types'
 import {
   DAY_NAMES,
   addDays,
@@ -29,16 +16,11 @@ import {
   jalaliWeekday,
   minutesOnDate,
   minutesThisWeek,
-  planStatusLabel,
-  recentPeriod,
-  recoverySuggestions,
   startOfWeek,
-  studyScore,
   subjectOf,
-  subjectReports,
   toISODate,
   weekDates,
-} from './utils'
+} from '../../utils'
 
 function IconHome() {
   return (
@@ -81,127 +63,7 @@ function IconMore() {
   )
 }
 
-const TASK_PRIORITY_LABEL: Record<TaskPriority, string> = {
-  low: 'کم',
-  normal: 'معمولی',
-  high: 'مهم',
-}
-
-const TASK_PRIORITY_RANK: Record<TaskPriority, number> = {
-  high: 0,
-  normal: 1,
-  low: 2,
-}
-
-function taskPriorityOf(task: AppData['tasks'][number]): TaskPriority {
-  return task.priority ?? 'normal'
-}
-
-function notifyStudy(title: string, body: string) {
-  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
-  new Notification(title, { body })
-}
-
-export default function App() {
-  const [identity, setIdentity] = useState<CloudIdentity | null>(null)
-  const [guestMode, setGuestMode] = useState(false)
-  const [authLoading, setAuthLoading] = useState(cloudEnabled)
-  const [authError, setAuthError] = useState('')
-
-  useEffect(() => {
-    let active = true
-
-    if (!supabase) {
-      if (!testServerEnabled) return
-      void loadCurrentIdentity()
-        .then((nextIdentity) => { if (active) setIdentity(nextIdentity) })
-        .catch((cause: unknown) => { if (active) setAuthError(cause instanceof Error ? cause.message : 'سرور دمو در دسترس نیست.') })
-        .finally(() => { if (active) setAuthLoading(false) })
-      return () => { active = false }
-    }
-
-    async function hydrate(session: Session | null) {
-      if (!session) {
-        if (active) {
-          setIdentity(null)
-          setAuthLoading(false)
-        }
-        return
-      }
-      setAuthLoading(true)
-      try {
-        const nextIdentity = await loadCloudIdentity(session)
-        if (active) {
-          setIdentity(nextIdentity)
-          setGuestMode(false)
-          setAuthError('')
-        }
-      } catch (cause) {
-        if (active) {
-          setIdentity(null)
-          setAuthError(cause instanceof Error ? cause.message : 'دریافت حساب کاربری ناموفق بود.')
-        }
-      } finally {
-        if (active) setAuthLoading(false)
-      }
-    }
-
-    void supabase.auth.getSession()
-      .then(({ data: sessionData }) => hydrate(sessionData.session))
-      .catch((cause: unknown) => {
-        if (active) {
-          setAuthError(cause instanceof Error ? cause.message : 'اتصال به سرویس حساب ناموفق بود.')
-          setAuthLoading(false)
-        }
-      })
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      window.setTimeout(() => { void hydrate(session) }, 0)
-    })
-
-    return () => {
-      active = false
-      authListener.subscription.unsubscribe()
-    }
-  }, [])
-
-  if (authLoading) {
-    return <div className="auth-loading">در حال بررسی حساب کاربری...</div>
-  }
-
-  if (identity?.role === 'advisor') {
-    return <AdvisorDashboard key={identity.id} identity={identity} onSignedOut={() => setIdentity(null)} />
-  }
-
-  if (!identity && !guestMode) {
-    return <AuthGate
-      initialError={authError}
-      onGuest={() => { setAuthError(''); setGuestMode(true) }}
-      onAuthenticated={async () => {
-        setIdentity(await loadCurrentIdentity())
-        setGuestMode(false)
-      }}
-    />
-  }
-
-  return (
-    <PlannerApp
-      key={identity?.id ?? 'local-guest'}
-      identity={identity}
-      authError={authError}
-      onSignOut={async () => {
-        if (identity) await signOutCloud()
-        setIdentity(null)
-        setGuestMode(false)
-      }}
-      onJoinAdvisor={async (token) => {
-        await joinAdvisor(token)
-        setIdentity(await loadCurrentIdentity())
-      }}
-    />
-  )
-}
-
-function PlannerApp({
+export function PlannerApp({
   identity,
   authError,
   onSignOut,
@@ -216,7 +78,6 @@ function PlannerApp({
   const [tab, setTab] = useState<Tab>('home')
   const [toast, setToast] = useState('')
   const sheetRef = useRef<HTMLElement>(null)
-  const notifiedPlans = useRef(new Set<string>())
 
   useEffect(() => {
     if (!identity) {
@@ -240,30 +101,6 @@ function PlannerApp({
     const t = setTimeout(() => setToast(''), 2200)
     return () => clearTimeout(t)
   }, [toast])
-
-  useEffect(() => {
-    if (typeof Notification === 'undefined' || Notification.permission !== 'default') return
-    void Notification.requestPermission()
-  }, [])
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      const now = new Date()
-      const todayDate = toISODate(now)
-      const minuteOfDay = now.getHours() * 60 + now.getMinutes()
-      data.plan
-        .filter((block) => block.date === todayDate || (!block.date && block.day === jalaliWeekday(now)))
-        .forEach((block) => {
-          const [hour, minute] = block.start.split(':').map(Number)
-          const key = `${todayDate}-${block.id}`
-          if (hour * 60 + minute !== minuteOfDay || notifiedPlans.current.has(key)) return
-          notifiedPlans.current.add(key)
-          notifyStudy('زمان مطالعه', `${block.title} از ساعت ${block.start} شروع می‌شود.`)
-          setToast(`یادآوری: ${block.title}`)
-        })
-    }, 15000)
-    return () => window.clearInterval(timer)
-  }, [data.plan])
 
   const today = toISODate()
   const week = weekDates()
@@ -326,7 +163,6 @@ function PlannerApp({
             data={data}
             readOnly={Boolean(identity?.advisorId)}
             onAdd={(block) => patch({ plan: [...data.plan, block] })}
-            onAddMany={(blocks) => patch({ plan: [...data.plan, ...blocks] })}
             onRemove={(id) => patch({ plan: data.plan.filter((p) => p.id !== id) })}
             onAddTask={(task) => patch({ tasks: [...data.tasks, task] })}
             onToggleTask={(id) =>
@@ -345,15 +181,13 @@ function PlannerApp({
             }
             onSave={(subjectId, minutes) => {
               if (minutes < 1) return
-              const subjectName = subjectOf(data.subjects, subjectId)?.name ?? 'درس'
               patch({
                 sessions: [
                   ...data.sessions,
                   { id: newId(), subjectId, date: today, minutes },
                 ],
               })
-              notifyStudy('پایان تمرکز', `${minutes} دقیقه ${subjectName} ذخیره شد. زمان استراحت شروع شد.`)
-              setToast(`${minutes} دقیقه برای ${subjectName} ذخیره شد`)
+              setToast(`${minutes} دقیقه برای ${subjectOf(data.subjects, subjectId)?.name} ذخیره شد`)
             }}
           />
         )}
@@ -365,14 +199,6 @@ function PlannerApp({
             onManual={(session) => {
               patch({ sessions: [...data.sessions, session] })
               setToast('جلسه ذخیره شد')
-            }}
-            onUpdateSession={(session) => {
-              patch({ sessions: data.sessions.map((item) => item.id === session.id ? session : item) })
-              setToast('جلسه ویرایش شد')
-            }}
-            onRemoveSession={(id) => {
-              patch({ sessions: data.sessions.filter((item) => item.id !== id) })
-              setToast('جلسه حذف شد')
             }}
           />
         )}
@@ -455,11 +281,6 @@ function Home({
   const labels = DAY_NAMES.map((n) => n.slice(0, 1))
   const heat = heatmapDays(data.sessions)
   const wd = jalaliWeekday()
-  const month = recentPeriod(data.sessions, 30)
-  const reports = subjectReports(data)
-  const score = studyScore(data)
-  const latestNote = [...(data.advisorNotes ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
-  const monthDelta = month.total - month.previous
 
   return (
     <>
@@ -520,51 +341,6 @@ function Home({
 
       <section className="card">
         <div className="card-head">
-          <h2>۳۰ روز اخیر</h2>
-          <span>{monthDelta === 0 ? 'بدون تغییر' : `${monthDelta > 0 ? '+' : '−'}${formatMinutes(Math.abs(monthDelta))} نسبت به قبل`}</span>
-        </div>
-        <div className="report-stats">
-          <div><strong>{formatMinutes(month.total)}</strong><span>مجموع مطالعه</span></div>
-          <div><strong>{month.best.minutes ? formatMinutes(month.best.minutes) : '—'}</strong><span>{month.best.minutes ? formatJalaliDate(month.best.date, { month: 'short', day: 'numeric' }) : 'بهترین روز'}</span></div>
-          <div><strong>{Math.round(score.goalRate * 100)}٪</strong><span>تحقق هدف هفته</span></div>
-        </div>
-        <BarWeek labels={month.values.slice(-7).map((day) => formatJalaliDate(day.date, { day: 'numeric' }))} values={month.values.slice(-7).map((day) => day.minutes)} />
-      </section>
-
-      <section className="card">
-        <div className="card-head">
-          <h2>گزارش درس‌ها</h2>
-          <span>سطح {score.level} · {score.score} امتیاز</span>
-        </div>
-        <p className="caption">امتیاز از دقیقه مطالعه، کارهای انجام‌شده و درصد هدف هفتگی ساخته می‌شود.</p>
-        {reports.length === 0 ? <p className="empty">هنوز درسی برای گزارش وجود ندارد.</p> : (
-          <ul className="subject-list">
-            {reports.map((subject) => (
-              <li key={subject.id}>
-                <div className="sub-top">
-                  <b style={{ color: subject.color }}>{subject.name}</b>
-                  <span>{formatMinutes(subject.minutes)} / {formatMinutes(subject.weeklyGoalMinutes)} · {subject.openTasks} کار باز</span>
-                </div>
-                <div className="bar"><i style={{ width: `${subject.progress * 100}%`, background: subject.color }} /></div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {latestNote && (
-        <section className="card">
-          <div className="card-head">
-            <h2>آخرین بازخورد مشاور</h2>
-            <span>{formatJalaliDate(latestNote.date)}</span>
-          </div>
-          <p>{latestNote.text}</p>
-          <p className="caption">وضعیت برنامه: {planStatusLabel(data.advisorPlanStatus)}</p>
-        </section>
-      )}
-
-      <section className="card">
-        <div className="card-head">
           <h2>ثبت سریع</h2>
         </div>
         <div className="chips">
@@ -619,7 +395,6 @@ function PlanView({
   data,
   readOnly,
   onAdd,
-  onAddMany,
   onRemove,
   onAddTask,
   onToggleTask,
@@ -628,7 +403,6 @@ function PlanView({
   data: AppData
   readOnly: boolean
   onAdd: (b: AppData['plan'][number]) => void
-  onAddMany: (blocks: AppData['plan']) => void
   onRemove: (id: string) => void
   onAddTask: (t: AppData['tasks'][number]) => void
   onToggleTask: (id: string) => void
@@ -644,8 +418,6 @@ function PlanView({
   })
   const [startTime, setStartTime] = useState('18:00')
   const [endTime, setEndTime] = useState('19:30')
-  const [taskFilter, setTaskFilter] = useState<'day' | 'open' | 'done' | 'overdue'>('day')
-  const [taskPriority, setTaskPriority] = useState<TaskPriority>('normal')
   const dates = Array.from({ length: 7 }, (_, index) =>
     addDays(startOfWeek(), weekOffset * 7 + index),
   )
@@ -656,14 +428,7 @@ function PlanView({
   const blocks = data.plan
     .filter((block) => block.date === activeDate || (!block.date && block.day === activeDay))
     .sort((a, b) => a.start.localeCompare(b.start))
-  const todayDate = toISODate()
-  const dayTasks = data.tasks.filter((task) => {
-    if (taskFilter === 'open') return !task.done
-    if (taskFilter === 'done') return task.done
-    if (taskFilter === 'overdue') return !task.done && Boolean(task.dueDate && task.dueDate < todayDate)
-    return task.dueDate === activeDate
-  }).sort((a, b) => TASK_PRIORITY_RANK[taskPriorityOf(a)] - TASK_PRIORITY_RANK[taskPriorityOf(b)])
-  const suggestions = recoverySuggestions(data, activeDate)
+  const dayTasks = data.tasks.filter((task) => task.dueDate === activeDate)
   const monthLabel = `${monthGrid.month} ${monthGrid.year}`
 
   function submitBlock(e: FormEvent<HTMLFormElement>) {
@@ -696,7 +461,6 @@ function PlanView({
       title: String(fd.get('title')),
       done: false,
       dueDate: activeDate,
-      priority: taskPriority,
     })
     e.currentTarget.reset()
   }
@@ -795,49 +559,6 @@ function PlanView({
         </section>
       )}
 
-      {!readOnly && (
-        <section className="card">
-          <div className="card-head">
-            <h2>پیشنهاد جبرانی</h2>
-            <span>{suggestions.length} بلوک</span>
-          </div>
-          <p className="caption">وضعیت برنامه: {planStatusLabel(data.advisorPlanStatus)}. پیشنهادها از اختلاف هدف هفتگی و مطالعه همین هفته ساخته می‌شوند.</p>
-          {suggestions.length === 0 ? <p className="empty">این هفته عقب‌ماندگی قابل جبرانی پیدا نشد.</p> : (
-            <>
-              <ul className="timeline">
-                {suggestions.map((suggestion) => {
-                  const subject = subjectOf(data.subjects, suggestion.subjectId)
-                  return (
-                    <li key={`${suggestion.subjectId}-${suggestion.date}-${suggestion.start}`}>
-                      <i style={{ background: subject?.color }} />
-                      <div>
-                        <strong>{suggestion.title}</strong>
-                        <small>{formatJalaliDate(suggestion.date, { weekday: 'long', day: 'numeric', month: 'short' })} · {suggestion.start} تا {suggestion.end}</small>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
-              <button
-                className="cta"
-                type="button"
-                onClick={() => onAddMany(suggestions.map((suggestion) => ({
-                  id: newId(),
-                  day: suggestion.day,
-                  date: suggestion.date,
-                  start: suggestion.start,
-                  end: suggestion.end,
-                  subjectId: suggestion.subjectId,
-                  title: suggestion.title,
-                })))}
-              >
-                افزودن پیشنهادها به برنامه
-              </button>
-            </>
-          )}
-        </section>
-      )}
-
       <section className="card">
         <div className="card-head">
           <h2>جلسه‌های {DAY_NAMES[activeDay]}</h2>
@@ -878,21 +599,11 @@ function PlanView({
 
       <section className="card">
         <div className="card-head">
-          <h2>{taskFilter === 'day' ? 'کارهای این روز' : 'کارها'}</h2>
+          <h2>کارهای این روز</h2>
           <span>{dayTasks.filter((task) => task.done).length}/{dayTasks.length}</span>
         </div>
-        <div className="seg task-filters" role="tablist" aria-label="فیلتر کارها">
-          {([
-            ['day', 'این روز'],
-            ['open', 'باز'],
-            ['done', 'انجام‌شده'],
-            ['overdue', 'عقب‌افتاده'],
-          ] as const).map(([id, label]) => (
-            <button key={id} type="button" className={taskFilter === id ? 'on' : ''} onClick={() => setTaskFilter(id)}>{label}</button>
-          ))}
-        </div>
         {dayTasks.length === 0 ? (
-          <p className="empty">کاری با این فیلتر پیدا نشد.</p>
+          <p className="empty">برای این روز کاری ثبت نشده است.</p>
         ) : (
           <ul className="tasks">
           {dayTasks.map((t) => (
@@ -901,10 +612,7 @@ function PlanView({
                 className={t.done ? 'check on' : 'check'}
                 onClick={() => onToggleTask(t.id)}
               />
-              <div>
-                <p className={t.done ? 'strike' : ''}>{t.title}</p>
-                <small>{TASK_PRIORITY_LABEL[taskPriorityOf(t)]}{t.dueDate ? ` · ${formatJalaliDate(t.dueDate, { month: 'short', day: 'numeric' })}` : ''}</small>
-              </div>
+              <p className={t.done ? 'strike' : ''}>{t.title}</p>
               {!readOnly && <button className="ghost" onClick={() => onRemoveTask(t.id)}>حذف</button>}
             </li>
           ))}
@@ -913,14 +621,6 @@ function PlanView({
         {!readOnly && <form className="form" onSubmit={submitTask}>
           <SubjectPicker name="subjectId" subjects={data.subjects.filter((subject) => !subject.archived)} />
           <input name="title" placeholder="مثلاً: حل ۲۰ تست" required />
-          <label className="field">
-            اولویت
-            <select value={taskPriority} onChange={(event) => setTaskPriority(event.target.value as TaskPriority)}>
-              <option value="high">مهم</option>
-              <option value="normal">معمولی</option>
-              <option value="low">کم</option>
-            </select>
-          </label>
           <button type="submit">افزودن کار</button>
         </form>}
       </section>
@@ -1185,7 +885,7 @@ function ClockPicker({
   const totalMinutes = hours * 60 + minutes
   const durationLabel = `${hours ? `${hours} ساعت` : ''}${hours && minutes ? ' و ' : ''}${minutes ? `${minutes} دقیقه` : ''}` || 'کمتر از یک دقیقه'
 
-  return createPortal(
+  return (
     <div className="clock-backdrop" onClick={onCancel}>
       <section
         className="clock-dialog"
@@ -1341,8 +1041,7 @@ function ClockPicker({
           <button className="cta" type="button" onClick={() => onSave(Math.max(1, totalMinutes))}>ذخیره زمان</button>
         </div>
       </section>
-    </div>,
-    document.body,
+    </div>
   )
 }
 
@@ -1575,7 +1274,7 @@ function JalaliDatePicker({
         <span>{formatJalaliDate(value)}</span>
         <span className="duration-trigger-hint">انتخاب تاریخ</span>
       </button>
-      {open && createPortal(
+      {open && (
         <div className="clock-backdrop" onClick={() => setOpen(false)}>
           <section
             className="clock-dialog jalali-calendar-dialog"
@@ -1617,8 +1316,7 @@ function JalaliDatePicker({
               <button className="cta" type="button" onClick={() => { onChange(toISODate()); setOpen(false) }}>امروز</button>
             </div>
           </section>
-        </div>,
-        document.body,
+        </div>
       )}
     </div>
   )
@@ -1704,36 +1402,17 @@ function SubjectsView({
   readOnly,
   onChange,
   onManual,
-  onUpdateSession,
-  onRemoveSession,
 }: {
   data: AppData
   readOnly: boolean
   onChange: (s: AppData['subjects']) => void
   onManual: (s: AppData['sessions'][number]) => void
-  onUpdateSession: (s: AppData['sessions'][number]) => void
-  onRemoveSession: (id: string) => void
 }) {
   const week = bySubjectThisWeek(data)
   const [newSubjectGoal, setNewSubjectGoal] = useState(120)
   const [sessionMinutes, setSessionMinutes] = useState(45)
   const [sessionDate, setSessionDate] = useState(toISODate())
   const [goalPickerSubjectId, setGoalPickerSubjectId] = useState('')
-  const [editingSessionId, setEditingSessionId] = useState('')
-  const editingSession = data.sessions.find((session) => session.id === editingSessionId)
-  const [editSubjectId, setEditSubjectId] = useState('')
-  const [editDate, setEditDate] = useState(toISODate())
-  const [editMinutes, setEditMinutes] = useState(45)
-  const [editNote, setEditNote] = useState('')
-  const recentSessions = [...data.sessions].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)).slice(0, 12)
-
-  function beginEdit(session: AppData['sessions'][number]) {
-    setEditingSessionId(session.id)
-    setEditSubjectId(session.subjectId)
-    setEditDate(session.date)
-    setEditMinutes(session.minutes)
-    setEditNote(session.note ?? '')
-  }
 
   function addSubject(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -1830,56 +1509,6 @@ function SubjectsView({
           <input name="note" placeholder="یادداشت (اختیاری)" />
           <button type="submit">ذخیره جلسه</button>
         </form>
-      </section>
-
-      <section className="card">
-        <div className="card-head">
-          <h2>جلسه‌های ثبت‌شده</h2>
-          <span>{data.sessions.length}</span>
-        </div>
-        {recentSessions.length === 0 ? <p className="empty">هنوز جلسه‌ای ثبت نشده است.</p> : (
-          <ul className="timeline">
-            {recentSessions.map((session) => {
-              const subject = subjectOf(data.subjects, session.subjectId)
-              return (
-                <li key={session.id}>
-                  <i style={{ background: subject?.color }} />
-                  <div>
-                    <strong>{subject?.name ?? 'درس حذف‌شده'} · {formatMinutes(session.minutes)}</strong>
-                    <small>{formatJalaliDate(session.date)}{session.note ? ` · ${session.note}` : ''}</small>
-                  </div>
-                  <button className="ghost" type="button" onClick={() => beginEdit(session)}>ویرایش</button>
-                  <button className="ghost" type="button" onClick={() => onRemoveSession(session.id)}>حذف</button>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-        {editingSession && (
-          <form
-            className="form"
-            onSubmit={(event) => {
-              event.preventDefault()
-              onUpdateSession({
-                ...editingSession,
-                subjectId: editSubjectId,
-                date: editDate,
-                minutes: editMinutes,
-                note: editNote,
-              })
-              setEditingSessionId('')
-            }}
-          >
-            <SubjectPicker subjects={data.subjects.filter((subject) => !subject.archived)} value={editSubjectId} onChange={setEditSubjectId} />
-            <JalaliDatePicker label="تاریخ جلسه" value={editDate} onChange={setEditDate} />
-            <DurationField label="مدت جلسه" value={editMinutes} onChange={setEditMinutes} />
-            <input value={editNote} onChange={(event) => setEditNote(event.target.value)} placeholder="یادداشت (اختیاری)" />
-            <div className="row">
-              <button type="submit">ذخیره ویرایش</button>
-              <button className="ghost" type="button" onClick={() => setEditingSessionId('')}>انصراف</button>
-            </div>
-          </form>
-        )}
       </section>
       {goalPickerSubjectId && (
         <ClockPicker

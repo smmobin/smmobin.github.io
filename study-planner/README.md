@@ -1,59 +1,46 @@
-# Study Planner
+# Study Planner (درس‌یار)
 
-A Persian study planner built with React, TypeScript, Vite, and Capacitor.
+A Persian study planner built with React, TypeScript, Vite, and a local Node API on PostgreSQL.
+
+## Docs
+
+- [docs/README.md](docs/README.md) — فهرست مستندات
+- [docs/PROMPTS.md](docs/PROMPTS.md) — پرامپت موج‌ها (بعدی: موج B)
+- [PRODUCT.md](PRODUCT.md) · [FEATURES.md](FEATURES.md) · [STATUS.md](STATUS.md) · [ROADMAP.md](ROADMAP.md)
+- [FRONTEND.md](FRONTEND.md) · [BACKEND.md](BACKEND.md) · [ARCHITECTURE.md](ARCHITECTURE.md)
+
+Layout: `apps/web` (Vite/React) + `apps/api` (HTTP API). Do not split into two GitHub repos yet — see ARCHITECTURE.md.
 
 ## Run locally
 
 ```sh
 npm install
-npm run dev
+npm run dev:app
 ```
 
-Without Supabase configuration, choose **مهمان محلی**. Guest data stays in the browser's local storage and is not sent to a server.
+This starts the API on `http://127.0.0.1:8788` and the web app on port `5174`. Database settings live in `.env.local` (git-ignored). Do not commit or paste passwords.
 
-## Test student and advisor modes
+Health check: `http://127.0.0.1:8788/health`
 
-Start both the Vite app and a local role-aware demo API:
-
-```sh
-npm run dev:demo
-```
-
-Open the Vite URL printed in the terminal. Seeded accounts:
-
-- Advisor: `advisor@demo.test` / `advisor123`
-- Student linked to the advisor: `student@demo.test` / `student123`
-- Independent student: `solo@demo.test` / `student123`
-
-The demo API is bound to `127.0.0.1:8787`. Workspace and invitation data persist under `.data/`, which is git-ignored. This test server uses fixed demo credentials and is not for production or network exposure.
-
-## Test the student/advisor flows
-
-Run the frontend and a local, loopback-only demo API together:
+Guest mode still exists until wave B. Student signup/login goes to the local API.
 
 ```sh
-npm run dev:demo
-```
-
-Open the Vite URL printed in the terminal. Demo accounts:
-
-- Advisor: `advisor@demo.test` / `advisor123`
-- Student linked to the advisor: `student@demo.test` / `student123`
-- Independent student: `solo@demo.test` / `student123`
-
-The demo API listens only on `127.0.0.1:8787`; sample data is stored under ignored `.data/` and survives server restarts. These fixed credentials and this local API are for testing only, never production.
-
-## Cloud accounts
-
-The app supports student accounts and advisor accounts. Student accounts can be independent or linked to one advisor. An advisor can publish plan blocks for linked students; linked students can view their plan and record study sessions but cannot edit the assigned plan.
-
-Set up Supabase and its row-level security migration using [supabase/README.md](supabase/README.md). Copy `.env.example` to `.env.local`, add the Supabase project URL and publishable/anon key, then restart Vite. Do not put a service-role key in frontend environment variables.
-
-Cloud authentication and storage are disabled until those project-specific values are configured. Database changes are in [supabase/migrations/20261004000100_roles_workspaces.sql](supabase/migrations/20261004000100_roles_workspaces.sql).
-
-## Checks
-
-```sh
+npm run migrate   # apply SQL in apps/api/sql
+npm test          # API unit + health smoke
 npm run build
 npm run lint
 ```
+
+## Optional demo API (legacy role seeds)
+
+```sh
+npm run dev:demo
+```
+
+Seeded accounts (demo only):
+
+- Advisor: `advisor@demo.test` / `advisor123`
+- Linked student: `student@demo.test` / `student123`
+- Independent student: `solo@demo.test` / `student123`
+
+The demo API is `127.0.0.1:8787`. Data stays under `.data/` (git-ignored).

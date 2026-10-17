@@ -3,8 +3,8 @@ import { spawn } from 'node:child_process'
 const windows = process.platform === 'win32'
 const viteCommand = windows ? (process.env.ComSpec || 'cmd.exe') : 'npm'
 const viteArgs = windows
-  ? ['/d', '/s', '/c', 'npm.cmd run dev -- --host 0.0.0.0']
-  : ['run', 'dev', '--', '--host', '0.0.0.0']
+  ? ['/d', '/s', '/c', 'npm.cmd run dev -w @study-planner/web -- --host 0.0.0.0']
+  : ['run', 'dev', '-w', '@study-planner/web', '--', '--host', '0.0.0.0']
 const vite = spawn(viteCommand, viteArgs, {
   env: { ...process.env, VITE_TEST_SERVER_URL: 'http://localhost:8787' },
   stdio: 'inherit',
