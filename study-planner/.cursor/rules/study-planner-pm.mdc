@@ -23,8 +23,8 @@ alwaysApply: true
 پروژه‌های مرتبط:
 - `study-planner` → ریپوی `smmobin/study-planner` (از ریشهٔ `D:\VibeCoding\Cursor` فقط مسیر `study-planner/`)
 - `personal-site-prototype` → ریپوی خودش در همان پوشه
-- `advisor-guidance` → ریپوی خودش در همان پوشه
 - `Gym` → طبق قاعدهٔ جداگانهٔ کاربر
+- اسنپ‌شات `advisor-guidance` حذف شده؛ دیگر استفاده نکن
 
 اگر push شکست خورد، در همان پاسخ بگو — ساکت نمان. «بعداً push می‌کنم» ممنوع است.
 

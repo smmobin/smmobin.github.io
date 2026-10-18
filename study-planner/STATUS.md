@@ -11,12 +11,12 @@
 
 Branchهای `cursor/personal-site-prototype` و `cursor/advisor-guidance` از ریپوی `study-planner` حذف شدند (محتوا به `main` منتقل شد).
 
-| پروژه | پوشهٔ محلی | GitHub (private) |
-|--------|------------|------------------|
-| personal site | `D:\VibeCoding\Cursor\personal-site-prototype` | https://github.com/smmobin/personal-site-prototype |
-| advisor-guidance snapshot | `D:\VibeCoding\Cursor\advisor-guidance` | https://github.com/smmobin/advisor-guidance |
+| پروژه | پوشهٔ محلی | GitHub |
+|--------|------------|--------|
+| درس‌یار (اصلی) | `D:\VibeCoding\Cursor\study-planner` | https://github.com/smmobin/study-planner (`main`) |
+| سایت شخصی | `D:\VibeCoding\Cursor\personal-site-prototype` | https://github.com/smmobin/personal-site-prototype (private) |
 
-کار روزمرهٔ درس‌یار همچنان: `D:\VibeCoding\Cursor\study-planner` → https://github.com/smmobin/study-planner (`main`).
+اسنپ‌شات `advisor-guidance` با تأیید مالک حذف شد (لوکال + هدف حذف GitHub) — نیازی به آن نبود؛ همهٔ محتوای لازم روی `study-planner` بود.
 
 ## وضعیت این لحظه (برای مالک)
 
