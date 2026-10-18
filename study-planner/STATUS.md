@@ -16,7 +16,7 @@ Branchهای `cursor/personal-site-prototype` و `cursor/advisor-guidance` از 
 | درس‌یار (اصلی) | `D:\VibeCoding\Cursor\study-planner` | https://github.com/smmobin/study-planner (`main`) |
 | سایت شخصی | `D:\VibeCoding\Cursor\personal-site-prototype` | https://github.com/smmobin/personal-site-prototype (private) |
 
-اسنپ‌شات `advisor-guidance` با تأیید مالک حذف شد (لوکال + هدف حذف GitHub) — نیازی به آن نبود؛ همهٔ محتوای لازم روی `study-planner` بود.
+اسنپ‌شات `advisor-guidance`: پوشهٔ محلی حذف شد. روی GitHub به `_DELETED-advisor-guidance` تغییر نام + آرشیو شد (حذف فیزیکی نیاز به password sudo حساب GitHub دارد؛ توکن فعلی `delete_repo` ندارد). محتوا همه روی `study-planner` است.
 
 ## وضعیت این لحظه (برای مالک)
 
